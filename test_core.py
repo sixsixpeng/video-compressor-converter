@@ -1,18 +1,13 @@
-"""无需外部媒体样本的核心参数与转码自检。"""
-
+﻿"""无需外部媒体样本的核心参数与转码自检。"""
 import tempfile
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-
 import av
-
-from app import (CUSTOM_OUTPUT_MODE, SOURCE_OUTPUT_MODE, build_available_output_path,
-                 build_output_name, choose_effective_output_directory, convert_video,
-                 normalise_even, normalise_output_mode, parse_crf,
-                 parse_optional_positive_int, probe_video, resolve_output_directory,
-                 scan_video_directory)
-
-
+from app import (CUSTOM_OUTPUT_MODE, PARAMETER_PRESETS, SOURCE_OUTPUT_MODE,
+                 build_available_output_path, build_output_name,
+                 choose_effective_output_directory, convert_video, normalise_even,
+                 normalise_output_mode, parse_crf, parse_optional_positive_int,
+                 probe_video, resolve_output_directory, scan_video_directory)
 def create_sample(path: Path) -> None:
     with av.open(path, "w", format="matroska") as container:
         stream = container.add_stream("mpeg4", rate=24)
@@ -34,8 +29,6 @@ def create_sample(path: Path) -> None:
             container.mux(packet)
         for packet in audio_stream.encode():
             container.mux(packet)
-
-
 def main() -> None:
     assert normalise_even(1920) == 1920
     assert normalise_even(1921) == 1920
@@ -45,6 +38,20 @@ def main() -> None:
     assert parse_optional_positive_int("30", "帧率") == 30
     assert parse_crf("0") == 0
     assert parse_crf(51) == 51
+    assert "【1080P】通用推荐（1080P / 30 FPS / CRF 23）" in PARAMETER_PRESETS
+    assert "【720P】通用分享（720P / 30 FPS / CRF 28）" in PARAMETER_PRESETS
+    assert "【1080P】固定码率（60 FPS / 12000 kbps）" in PARAMETER_PRESETS
+    preset_names = list(PARAMETER_PRESETS)
+    assert preset_names.index("【4K】高质量归档（2160P / 60 FPS / CRF 18）") < preset_names.index("【2K】高质量归档（1440P / 60 FPS / CRF 20）")
+    assert preset_names.index("【1080P】通用推荐（1080P / 30 FPS / CRF 23）") < preset_names.index("【720P】通用分享（720P / 30 FPS / CRF 28）")
+    assert preset_names.index("【1080P】省空间（1080P / 24 FPS / CRF 30）") < preset_names.index("【1080P】固定码率（30 FPS / 6000 kbps）")
+    assert preset_names.index("【1080P】固定码率（60 FPS / 12000 kbps）") < preset_names.index("【900P】窗口录屏（1600 宽 / 30 FPS / CRF 24）")
+    for preset in PARAMETER_PRESETS.values():
+        assert parse_crf(preset["crf"]) == preset["crf"]
+        assert parse_optional_positive_int(preset["width"], "目标宽度") == preset["width"]
+        assert parse_optional_positive_int(preset["fps"], "目标帧率") == preset["fps"]
+        assert parse_optional_positive_int(preset["bitrate"], "目标码率") == preset["bitrate"]
+        assert preset["preset"] in {"ultrafast", "fast", "medium", "slow"}
     assert build_output_name("旅行.原片.MOV", "mp4") == "旅行.原片_converted.mp4"
     with tempfile.TemporaryDirectory() as directory:
         output_dir = resolve_output_directory(directory)
@@ -106,8 +113,6 @@ def main() -> None:
             assert video.codec_context.name == "h264"
             assert any(stream.type == "audio" for stream in converted.streams)
     print("核心参数与视频转码自检通过")
-
-
 if __name__ == "__main__":
     main()
 

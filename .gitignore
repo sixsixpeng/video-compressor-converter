@@ -1,0 +1,23 @@
+#忽略运行生成目录
+**/.pytest_cache
+**/venv
+**/__pycache__
+**/.pyc
+**/.idea
+
+# pytest单元测试模块例子
+**/report_allure
+**/report
+**/result_data
+**/archive
+
+**/videos/
+!py_note/Library_notes/appium、selenium、playwright、webbrowser、pywinauto/playwright/videos
+**/log/
+**/user_data/
+**/.nicegui/
+**/cache/
+
+# pathlib示例生成的临时测试目录（自动清理，无需跟踪）
+**/test_pathlib_*/
+**/node_modules*/
