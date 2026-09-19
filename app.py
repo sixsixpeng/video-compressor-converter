@@ -775,7 +775,12 @@ def index() -> None:
 
                 def handle_row_click(event) -> None:
                     """点击行内任意单元格都能选中该行；再次点击同一行取消选择。"""
-                    clicked_row = event.args["row"]
+                    # js_handler 只透传被点击的那一行，这里同时兼容单值字典与列表两种形态
+                    clicked_row = event.args
+                    if isinstance(clicked_row, list):
+                        clicked_row = next((row for row in clicked_row if isinstance(row, dict) and "id" in row), None)
+                    if not isinstance(clicked_row, dict):
+                        return
                     clicked_id = clicked_row["id"]
                     current_item = selected_queue_item["item"]
                     if current_item is not None and str(current_item["path"]) == clicked_id:
@@ -784,7 +789,7 @@ def index() -> None:
                     select_row_by_id(clicked_id)
 
                 def handle_selection_change(event) -> None:
-                    """复选框或行点击导致的选中变化，统一同步到编辑面板。"""
+                    """复选框改变选中时，把 Quasar 的选中结果同步到编辑面板。"""
                     selected_rows = getattr(event, "selection", None) or []
                     if not selected_rows:
                         clear_row_selection()
@@ -792,8 +797,14 @@ def index() -> None:
                     select_row_by_id(selected_rows[0]["id"])
 
                 queue_table = ui.table(columns=table_columns, rows=[], row_key="id", selection="single", on_select=handle_selection_change, pagination={"rowsPerPage": 10}).classes("w-full my-3").props("dense flat bordered separator=cell")
-                # 绑定行点击事件：整行任意单元格都可切换选中状态
-                queue_table.on("row-click", handle_row_click, ["row"])
+                # 绑定行点击事件：整行任意单元格都可切换选中状态。
+                # Quasar 的 row-click 第 1 个参数是 DOM 事件、第 2 个才是行数据，
+                # 因此用 js_handler 只把行数据回传；点击复选框时直接跳过，交给 Quasar 自身的选择逻辑处理，
+                # 避免“复选框”与“行点击”两个事件互相抵消。
+                queue_table.on("row-click", handle_row_click,
+                               js_handler="(evt, row) => { const target = evt && evt.target; "
+                                          "if (target && target.closest && target.closest('.q-checkbox, [role=\"checkbox\"]')) return; "
+                                          "emit(row); }")
 
                 # 单行编辑面板：参数一行（可自动换行），操作按钮单独一行，避免超长横向滚动
                 # 单行编辑面板：加 mt-2 与表格拉开距离，内部用 gap-y 分隔标签、参数行与按钮行
